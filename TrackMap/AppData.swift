@@ -9,7 +9,7 @@ class AppData: ObservableObject {
             self.roadmaps = savedRoadmaps
         }
         
-        // If no roadmaps exist (first launch), add the ML roadmap
+        // If no roadmaps exist (first launch), add the default roadmaps
         if self.roadmaps.isEmpty {
             self.roadmaps.append(RoadmapTemplates.createPythonRoadmap())
             self.roadmaps.append(RoadmapTemplates.createDataScienceRoadmap())
@@ -39,12 +39,6 @@ class AppData: ObservableObject {
     
     func updateRoadmap(_ roadmap: Roadmap) {
         if let index = roadmaps.firstIndex(where: { $0.id == roadmap.id }) {
-            // Debug print to see what's being saved
-            print("Updating roadmap with \(roadmap.phases.count) phases")
-            for (i, phase) in roadmap.phases.enumerated() {
-                print("Phase \(i): \(phase.name) with \(phase.tasks.count) tasks")
-            }
-            
             roadmaps[index] = roadmap
             saveRoadmaps()
         }
@@ -59,7 +53,6 @@ class AppData: ObservableObject {
         
         // Now add a fresh one with all phases
         let newMLRoadmap = RoadmapTemplates.createMLRoadmap()
-        print("Created new ML roadmap with \(newMLRoadmap.phases.count) phases")
         roadmaps.append(newMLRoadmap)
         saveRoadmaps()
     }
@@ -68,7 +61,6 @@ class AppData: ObservableObject {
     func saveRoadmaps() {
         if let encoded = try? JSONEncoder().encode(roadmaps) {
             UserDefaults.standard.set(encoded, forKey: "savedRoadmaps")
-            print("Saved \(roadmaps.count) roadmaps to UserDefaults")
         }
     }
     
@@ -76,20 +68,8 @@ class AppData: ObservableObject {
     func loadRoadmaps() -> [Roadmap]? {
         if let savedRoadmapsData = UserDefaults.standard.data(forKey: "savedRoadmaps"),
            let savedRoadmaps = try? JSONDecoder().decode([Roadmap].self, from: savedRoadmapsData) {
-            print("Loaded \(savedRoadmaps.count) roadmaps from UserDefaults")
             return savedRoadmaps
         }
         return nil
-    }
-    
-    // Print debug information about loaded roadmaps
-    func printRoadmapsDebug() {
-        print("Current roadmaps: \(roadmaps.count)")
-        for (i, roadmap) in roadmaps.enumerated() {
-            print("Roadmap \(i): \(roadmap.title) with \(roadmap.phases.count) phases")
-            for (j, phase) in roadmap.phases.enumerated() {
-                print("  Phase \(j): \(phase.name) with \(phase.tasks.count) tasks")
-            }
-        }
     }
 }

@@ -5,6 +5,9 @@ struct RoadmapDetailView: View {
     @State var roadmap: Roadmap
     @State private var selectedPhaseIndex: Int = 0
     @State private var isAddingPhase: Bool = false
+    @State private var isAddingTask: Bool = false
+    @State private var isAddingSubTask: Bool = false
+    @State private var selectedTaskIndex: Int = 0
     
     var body: some View {
         VStack {
@@ -40,11 +43,6 @@ struct RoadmapDetailView: View {
                 }
                 .padding()
             } else {
-                // Debug info
-                Text("Available phases: \(roadmap.phases.count)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                
                 // Phase navigation buttons
                 HStack {
                     Button(action: {
@@ -89,6 +87,20 @@ struct RoadmapDetailView: View {
                     .padding()
                 }
                 
+                // Add task button
+                Button(action: {
+                    isAddingTask = true
+                }) {
+                    HStack {
+                        Image(systemName: "plus.circle")
+                        Text("Add Task")
+                    }
+                    .padding(8)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .padding(.bottom, 10)
+                
                 // Current phase content
                 if selectedPhaseIndex < roadmap.phases.count {
                     let currentPhase = roadmap.phases[selectedPhaseIndex]
@@ -99,8 +111,22 @@ struct RoadmapDetailView: View {
                             .padding(.top, 50)
                     } else {
                         List {
-                            ForEach(currentPhase.tasks) { task in
-                                Section(header: Text(task.name).font(.headline)) {
+                            ForEach(currentPhase.tasks.indices, id: \.self) { taskIndex in
+                                let task = currentPhase.tasks[taskIndex]
+                                Section(header:
+                                    HStack {
+                                        Text(task.name).font(.headline)
+                                        Spacer()
+                                        Button(action: {
+                                            selectedTaskIndex = taskIndex
+                                            isAddingSubTask = true
+                                        }) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .foregroundColor(.blue)
+                                        }
+                                        .buttonStyle(BorderlessButtonStyle())
+                                    }
+                                ) {
                                     ForEach(task.subTasks) { subTask in
                                         HStack {
                                             Text(subTask.name)
@@ -124,18 +150,21 @@ struct RoadmapDetailView: View {
             }
         }
         .navigationTitle(roadmap.title)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    isAddingPhase = true
+                }) {
+                    Image(systemName: "plus")
+                }
+            }
+        }
         .onAppear {
             // Ensure selected phase is valid
             if roadmap.phases.isEmpty {
                 selectedPhaseIndex = 0
             } else if selectedPhaseIndex >= roadmap.phases.count {
                 selectedPhaseIndex = 0
-            }
-            
-            // Print debug info
-            print("Roadmap loaded with \(roadmap.phases.count) phases")
-            for (i, phase) in roadmap.phases.enumerated() {
-                print("Phase \(i): \(phase.name) with \(phase.tasks.count) tasks")
             }
         }
         .sheet(isPresented: $isAddingPhase) {
@@ -144,6 +173,24 @@ struct RoadmapDetailView: View {
                 roadmap.phases.append(newPhase)
                 selectedPhaseIndex = roadmap.phases.count - 1
                 updateRoadmap()
+            }
+        }
+        .sheet(isPresented: $isAddingTask) {
+            AddTaskView { taskName in
+                if !roadmap.phases.isEmpty {
+                    let newTask = Task(id: UUID(), name: taskName, isCompleted: false, subTasks: [])
+                    roadmap.phases[selectedPhaseIndex].tasks.append(newTask)
+                    updateRoadmap()
+                }
+            }
+        }
+        .sheet(isPresented: $isAddingSubTask) {
+            AddSubTaskView { subTaskName in
+                if !roadmap.phases.isEmpty && !roadmap.phases[selectedPhaseIndex].tasks.isEmpty {
+                    let newSubTask = SubTask(id: UUID(), name: subTaskName, isCompleted: false)
+                    roadmap.phases[selectedPhaseIndex].tasks[selectedTaskIndex].subTasks.append(newSubTask)
+                    updateRoadmap()
+                }
             }
         }
     }

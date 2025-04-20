@@ -29,20 +29,15 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("My Roadmaps")
-//            .navigationBarItems(
-//                trailing:
-//                    Menu {
-//                        Button("Create Custom Roadmap") {
-//                            showingAddRoadmap = true
-//                        }
-//                        
-////                        Button("Add Web Dev Roadmap") {
-////                            appData.addRoadmap(RoadmapTemplates.createWebDevRoadmap())
-////                        }
-//                    } label: {
-//                        Image(systemName: "plus")
-//                    }
-//            )
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showingAddRoadmap = true
+                    }) {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
             .sheet(isPresented: $showingAddRoadmap) {
                 AddRoadmapView().environmentObject(appData)
             }
@@ -81,28 +76,6 @@ struct EmptyStateView: View {
                         .foregroundColor(.white)
                         .cornerRadius(10)
                 }
-                
-//                Button(action: {
-//                    appData.addRoadmap(RoadmapTemplates.createMLRoadmap())
-//                }) {
-//                    Text("Use ML Roadmap Template")
-//                        .padding()
-//                        .frame(maxWidth: .infinity)
-//                        .background(Color.green)
-//                        .foregroundColor(.white)
-//                        .cornerRadius(10)
-//                }
-//                
-//                Button(action: {
-//                    appData.addRoadmap(RoadmapTemplates.createWebDevRoadmap())
-//                }) {
-//                    Text("Use Web Dev Template")
-//                        .padding()
-//                        .frame(maxWidth: .infinity)
-//                        .background(Color.purple)
-//                        .foregroundColor(.white)
-//                        .cornerRadius(10)
-//                }
             }
             .padding(.horizontal, 40)
             .padding(.top, 20)

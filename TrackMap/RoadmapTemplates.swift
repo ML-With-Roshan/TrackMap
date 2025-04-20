@@ -642,26 +642,6 @@ struct RoadmapTemplates {
         )
     }
 
-    // Create Web Development Roadmap template
-    static func createWebDevRoadmap() -> Roadmap {
-        return Roadmap(
-            id: UUID(),
-            title: "Web Development Roadmap",
-            description: "Learn modern web development from HTML basics to full-stack applications.",
-            imageName: "globe",
-            phases: [
-                // Add phases, tasks, and subtasks for web development
-                Phase(name: "Phase 1: HTML & CSS Fundamentals", tasks: [
-                    Task(name: "Learn HTML Basics", isCompleted: false, subTasks: [
-                        SubTask(name: "Understand HTML Structure", isCompleted: false),
-                        SubTask(name: "Work with HTML Elements", isCompleted: false)
-                    ])
-                    // Add more tasks
-                ])
-                // Add more phases
-            ]
-        )
-    }
     
     // Create empty roadmap template
     static func createEmptyRoadmap(withTitle title: String = "New Roadmap",
