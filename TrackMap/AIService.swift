@@ -14,14 +14,7 @@ class AIService {
     
     // Secure way to get API key
     private static func getAPIKey() -> String? {
-        let apiKey = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]
-        
-        print("🔍 API Key Retrieved:")
-        print("Key length: \(apiKey?.count ?? 0)")
-        print("Key starts with 'sk-ant-': \(apiKey?.starts(with: "sk-ant-") ?? false)")
-        print("Full key: \(apiKey ?? "nil")")
-        
-        return apiKey
+        return "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"
     }
     
     // MARK: - Main Roadmap Generation Method
@@ -51,6 +44,7 @@ class AIService {
         
         request.addValue("Bearer \(trimmedAPIKey)", forHTTPHeaderField: "Authorization")
         request.addValue(trimmedAPIKey, forHTTPHeaderField: "x-api-key")
+        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         
         // Prepare request body
         let body: [String: Any] = [
@@ -124,19 +118,9 @@ class AIService {
                     return
                 }
                 
-                // Extract JSON from the text response
-                guard let jsonStartIndex = textContent.range(of: "{")?.lowerBound,
-                      let jsonEndIndex = textContent.range(of: "}", range: jsonStartIndex..<textContent.endIndex)?.upperBound else {
-                    print("🚨 Failed to find JSON in response")
-                    completion(.failure(AIServiceError.invalidResponse))
-                    return
-                }
-                
-                let jsonString = textContent[jsonStartIndex..<jsonEndIndex]
-                
                 // Parse roadmap from content
                 let roadmap = try parseRoadmap(
-                    json: String(jsonString),
+                    json: textContent,
                     name: name,
                     description: description.isEmpty ? "AI-generated roadmap for \(name)" : description
                 )
@@ -179,35 +163,18 @@ class AIService {
         OUTPUT INSTRUCTIONS:
         - Respond ONLY with a valid JSON object
         - Do NOT include any additional text or explanation
-        - Follow this exact JSON structure:
-
-        {
-            "phases": [
-                {
-                    "name": "Phase Name",
-                    "tasks": [
-                        {
-                            "name": "Task Name",
-                            "subTasks": [
-                                {"name": "Specific Subtask"},
-                                {"name": "Another Specific Subtask"},
-                                ...
-                            ]
-                        },
-                        ...
-                    ]
-                },
-                ...
-            ]
-        }
-
-        BEGIN RESPONSE IN PRECISE JSON FORMAT:
+        - Use a precise, machine-readable JSON format
+        - Ensure all keys are valid
+        - Complete and valid syntax is crucial
         """
     }
     
     // Parse JSON into Roadmap model
     private static func parseRoadmap(json: String, name: String, description: String) throws -> Roadmap {
-        guard let jsonData = json.data(using: .utf8) else {
+        // Try to remove any leading/trailing whitespace or newlines
+        let cleanedJSON = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard let jsonData = cleanedJSON.data(using: .utf8) else {
             throw AIServiceError.invalidResponse
         }
         
@@ -228,10 +195,10 @@ class AIService {
                             id: UUID(),
                             name: task.name,
                             isCompleted: false,
-                            subTasks: task.subTasks.map { subTask in
+                            subTasks: task.subtasks.map { subTask in
                                 SubTask(
                                     id: UUID(),
-                                    name: subTask.name,
+                                    name: subTask,
                                     isCompleted: false
                                 )
                             }
@@ -254,10 +221,6 @@ class AIService {
     
     private struct AITask: Codable {
         var name: String
-        var subTasks: [AISubTask]
-    }
-    
-    private struct AISubTask: Codable {
-        var name: String
+        var subtasks: [String]
     }
 }
