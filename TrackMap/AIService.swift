@@ -14,7 +14,7 @@ class AIService {
     
     // Secure way to get API key
     private static func getAPIKey() -> String? {
-        return "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"
+        return "your-api-key-here" // Replace with your secure method to retrieve the API key
     }
     
     // MARK: - Main Roadmap Generation Method
