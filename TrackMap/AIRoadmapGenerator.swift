@@ -1,10 +1,3 @@
-//
-//  AiRoadMapGenerator.swift
-//  TrackMap
-//
-//  Created by Roshan Sai on 4/19/25.
-//
-
 import SwiftUI
 
 struct AIRoadmapGenerator: View {
@@ -14,11 +7,10 @@ struct AIRoadmapGenerator: View {
     @State private var roadmapName = ""
     @State private var roadmapDescription = ""
     @State private var isGenerating = false
-    @State private var generatedRoadmap: Roadmap?
     @State private var showingResult = false
+    @State private var showingError = false
     @State private var aiPrompt = ""
     @State private var errorMessage = ""
-    @State private var showingError = false
     
     var body: some View {
         NavigationView {
@@ -81,12 +73,12 @@ struct AIRoadmapGenerator: View {
                 Alert(
                     title: Text("Roadmap Generated!"),
                     message: Text("Your custom roadmap has been successfully created."),
-                    dismissButton: .default(Text("Great!")) {
-                        if let roadmap = generatedRoadmap {
-                            appData.addRoadmap(roadmap)
+                    dismissButton: .default(Text("Great!"), action: {
+                        // Dismiss view after a small delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            presentationMode.wrappedValue.dismiss()
                         }
-                        presentationMode.wrappedValue.dismiss()
-                    }
+                    })
                 )
             }
             .alert(isPresented: $showingError) {
@@ -100,83 +92,37 @@ struct AIRoadmapGenerator: View {
     }
     
     private func generateRoadmap() {
+        guard !roadmapName.isEmpty && !aiPrompt.isEmpty else { return }
+        
         isGenerating = true
+        print("Starting roadmap generation...")
         
-        // In development mode, we can use the sample roadmap
-        if ProcessInfo.processInfo.environment["PREVIEW"] == "true" {
-            // Simulated delay to show the loading state
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                generatedRoadmap = createSampleRoadmap()
-                isGenerating = false
-                showingResult = true
-            }
-            return
-        }
-        
-        // In production, use the AI service
         AIService.generateRoadmap(
             name: roadmapName,
             description: roadmapDescription,
             prompt: aiPrompt
         ) { result in
+            print("Generator callback received: \(result)")
+            
             DispatchQueue.main.async {
                 isGenerating = false
                 
                 switch result {
                 case .success(let roadmap):
-                    generatedRoadmap = roadmap
+                    print("Roadmap generated successfully")
+                    // Add the roadmap immediately
+                    appData.addRoadmap(roadmap)
+                    // Then show success alert
                     showingResult = true
                     
                 case .failure(let error):
-                    errorMessage = "Failed to generate roadmap: \(error.localizedDescription)"
+                    print("Roadmap generation error: \(error)")
+                    errorMessage = error.localizedDescription
                     showingError = true
                 }
             }
         }
-    }
-    
-    // Sample roadmap for development/testing
-    private func createSampleRoadmap() -> Roadmap {
-        return Roadmap(
-            id: UUID(),
-            title: roadmapName,
-            description: roadmapDescription.isEmpty ? "AI-generated roadmap for \(roadmapName)" : roadmapDescription,
-            imageName: "sparkles",
-            phases: [
-                Phase(name: "Phase 1: Fundamentals", tasks: [
-                    Task(name: "Understand Basic Concepts", isCompleted: false, subTasks: [
-                        SubTask(name: "Research key terminology", isCompleted: false),
-                        SubTask(name: "Complete introductory tutorial", isCompleted: false),
-                        SubTask(name: "Practice with simple exercises", isCompleted: false)
-                    ]),
-                    Task(name: "Set Up Learning Environment", isCompleted: false, subTasks: [
-                        SubTask(name: "Install necessary software", isCompleted: false),
-                        SubTask(name: "Configure development tools", isCompleted: false)
-                    ])
-                ]),
-                Phase(name: "Phase 2: Core Skills", tasks: [
-                    Task(name: "Master Intermediate Techniques", isCompleted: false, subTasks: [
-                        SubTask(name: "Study advanced concepts", isCompleted: false),
-                        SubTask(name: "Complete practical exercises", isCompleted: false),
-                        SubTask(name: "Join online community for support", isCompleted: false)
-                    ]),
-                    Task(name: "Build Sample Projects", isCompleted: false, subTasks: [
-                        SubTask(name: "Create first basic project", isCompleted: false),
-                        SubTask(name: "Expand with additional features", isCompleted: false)
-                    ])
-                ]),
-                Phase(name: "Phase 3: Advanced Applications", tasks: [
-                    Task(name: "Apply Skills to Real Problems", isCompleted: false, subTasks: [
-                        SubTask(name: "Identify complex use cases", isCompleted: false),
-                        SubTask(name: "Develop comprehensive solution", isCompleted: false)
-                    ]),
-                    Task(name: "Refine and Optimize", isCompleted: false, subTasks: [
-                        SubTask(name: "Test for performance issues", isCompleted: false),
-                        SubTask(name: "Implement best practices", isCompleted: false),
-                        SubTask(name: "Seek feedback from experts", isCompleted: false)
-                    ])
-                ])
-            ]
-        )
+        
+        print("Generator function called")
     }
 }
