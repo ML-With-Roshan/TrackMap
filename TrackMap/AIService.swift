@@ -1,328 +1,224 @@
 import Foundation
 
+enum AIServiceError: Error {
+    case missingAPIKey
+    case networkError(Error)
+    case invalidResponse
+    case authenticationError
+    case unknownError
+}
+
 class AIService {
     // MARK: - Configuration
-    private static let useDevelopmentMode = true // Set to true to use placeholder data instead of API
+    private static let anthropicURL = URL(string: "https://api.anthropic.com/v1/messages")!
     
-    private static let apiURL = URL(string: "https://api.anthropic.com/v1/messages")!
-    private static var apiKey: String {
-        return "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"
+    // Secure way to get API key
+    private static func getAPIKey() -> String? {
+        let apiKey = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]
+        
+        print("🔍 API Key Retrieved:")
+        print("Key length: \(apiKey?.count ?? 0)")
+        print("Key starts with 'sk-ant-': \(apiKey?.starts(with: "sk-ant-") ?? false)")
+        print("Full key: \(apiKey ?? "nil")")
+        
+        return apiKey
     }
     
-    // MARK: - Main Generator Method
-    static func generateRoadmap(name: String, description: String, prompt: String, completion: @escaping (Result<Roadmap, Error>) -> Void) {
-        // In development mode, use placeholder data instead of API call
-        if useDevelopmentMode {
-            // Add a small delay to simulate network request
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                let roadmap = createSampleRoadmap(name: name, description: description, topic: prompt)
-                // Ensure we're on the main thread when calling completion
-                DispatchQueue.main.async {
-                    completion(.success(roadmap))
-                }
-            }
+    // MARK: - Main Roadmap Generation Method
+    static func generateRoadmap(
+        name: String,
+        description: String,
+        prompt: String,
+        completion: @escaping (Result<Roadmap, Error>) -> Void
+    ) {
+        // Validate API key
+        guard let apiKey = getAPIKey() else {
+            print("🚨 API Key is missing!")
+            completion(.failure(AIServiceError.missingAPIKey))
             return
         }
         
-        // Create the prompt that will be sent to the AI
-        let formattedPrompt = createPrompt(name: name, description: description, userInput: prompt)
+        // Construct detailed prompt
+        let fullPrompt = createDetailedPrompt(name: name, description: description, userInput: prompt)
         
-        // Call the AI service
-        requestRoadmapFromAI(prompt: formattedPrompt) { result in
-            // Ensure we're on the main thread when calling completion
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let roadmapJSON):
-                    // Parse the AI response into a Roadmap object
-                    do {
-                        let roadmap = try parseRoadmap(json: roadmapJSON, name: name, description: description)
-                        completion(.success(roadmap))
-                    } catch {
-                        print("Error parsing roadmap: \(error)")
-                        completion(.failure(AIServiceError.parsingFailed(error)))
-                    }
-                    
-                case .failure(let error):
-                    print("API request error: \(error)")
-                    completion(.failure(error))
-                }
-            }
-        }
-    }
-    
-    // MARK: - Development Mode Sample Roadmap
-    private static func createSampleRoadmap(name: String, description: String, topic: String) -> Roadmap {
-        // Create a sample roadmap based on the name/topic
-        let formattedDescription = description.isEmpty ? "AI-generated roadmap for \(name)" : description
-        
-        // Create phases based on the topic
-        var phases: [Phase] = []
-        
-        // Phase 1: Always fundamentals
-        phases.append(
-            Phase(
-                id: UUID(),
-                name: "Phase 1: \(name) Fundamentals",
-                tasks: [
-                    Task(
-                        id: UUID(),
-                        name: "Basic Concepts",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Understand core terminology", isCompleted: false),
-                            SubTask(id: UUID(), name: "Study history and background", isCompleted: false),
-                            SubTask(id: UUID(), name: "Set up learning environment", isCompleted: false)
-                        ]
-                    ),
-                    Task(
-                        id: UUID(),
-                        name: "Environment Setup",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Install required tools", isCompleted: false),
-                            SubTask(id: UUID(), name: "Configure development environment", isCompleted: false)
-                        ]
-                    ),
-                    Task(
-                        id: UUID(),
-                        name: "First Steps",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Complete beginner tutorial", isCompleted: false),
-                            SubTask(id: UUID(), name: "Build a simple practice project", isCompleted: false)
-                        ]
-                    )
-                ]
-            )
-        )
-        
-        // Phase 2: Intermediate skills
-        phases.append(
-            Phase(
-                id: UUID(),
-                name: "Phase 2: Intermediate \(name)",
-                tasks: [
-                    Task(
-                        id: UUID(),
-                        name: "Advanced Concepts",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Study intermediate techniques", isCompleted: false),
-                            SubTask(id: UUID(), name: "Apply concepts to real problems", isCompleted: false),
-                            SubTask(id: UUID(), name: "Complete intermediate exercises", isCompleted: false)
-                        ]
-                    ),
-                    Task(
-                        id: UUID(),
-                        name: "Build a Medium Project",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Plan project architecture", isCompleted: false),
-                            SubTask(id: UUID(), name: "Implement core functionality", isCompleted: false),
-                            SubTask(id: UUID(), name: "Add advanced features", isCompleted: false)
-                        ]
-                    )
-                ]
-            )
-        )
-        
-        // Phase 3: Advanced techniques
-        phases.append(
-            Phase(
-                id: UUID(),
-                name: "Phase 3: Advanced \(name) Mastery",
-                tasks: [
-                    Task(
-                        id: UUID(),
-                        name: "Expert-Level Concepts",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Study advanced patterns and techniques", isCompleted: false),
-                            SubTask(id: UUID(), name: "Understand optimization strategies", isCompleted: false)
-                        ]
-                    ),
-                    Task(
-                        id: UUID(),
-                        name: "Build a Complex Project",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Design scalable architecture", isCompleted: false),
-                            SubTask(id: UUID(), name: "Implement using best practices", isCompleted: false),
-                            SubTask(id: UUID(), name: "Deploy to production", isCompleted: false)
-                        ]
-                    ),
-                    Task(
-                        id: UUID(),
-                        name: "Contribute to Community",
-                        isCompleted: false,
-                        subTasks: [
-                            SubTask(id: UUID(), name: "Share knowledge through blog posts", isCompleted: false),
-                            SubTask(id: UUID(), name: "Participate in open source", isCompleted: false)
-                        ]
-                    )
-                ]
-            )
-        )
-        
-        // Create the roadmap object
-        return Roadmap(
-            id: UUID(),
-            title: name,
-            description: formattedDescription,
-            imageName: "sparkles",
-            phases: phases
-        )
-    }
-    
-    // MARK: - AI Request
-    private static func requestRoadmapFromAI(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
-        // Create the request
-        var request = URLRequest(url: apiURL)
+        // Prepare URL request
+        var request = URLRequest(url: anthropicURL)
         request.httpMethod = "POST"
-        
-        // Authentication for Anthropic API
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // Create the request body according to Anthropic's API spec
+        // IMPORTANT: Trim any whitespace from the API key
+        let trimmedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        request.addValue("Bearer \(trimmedAPIKey)", forHTTPHeaderField: "Authorization")
+        request.addValue(trimmedAPIKey, forHTTPHeaderField: "x-api-key")
+        
+        // Prepare request body
         let body: [String: Any] = [
             "model": "claude-3-opus-20240229",
-            "max_tokens": 4000,
-            "temperature": 0.7,
+            "max_tokens": 2000,
+            "system": "You are an expert curriculum designer creating structured learning roadmaps.",
             "messages": [
-                ["role": "user", "content": prompt]
-            ]
+                ["role": "user", "content": fullPrompt]
+            ],
+            "temperature": 0.7
         ]
         
+        // Convert body to JSON data
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         } catch {
-            completion(.failure(AIServiceError.requestCreationFailed))
+            print("🚨 Request body creation failed: \(error)")
+            completion(.failure(AIServiceError.unknownError))
             return
         }
         
-        // Send the request
+        // Perform network request
         let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            // Check for network errors
             if let error = error {
-                completion(.failure(error))
+                print("🚨 Network error: \(error)")
+                completion(.failure(AIServiceError.networkError(error)))
                 return
             }
             
+            // Validate response
             guard let data = data else {
-                completion(.failure(AIServiceError.noData))
+                print("🚨 No data received")
+                completion(.failure(AIServiceError.invalidResponse))
                 return
             }
             
-            // Parse the response according to Anthropic's API response format
+            // Print raw response for debugging
+            if let rawResponse = String(data: data, encoding: .utf8) {
+                print("🔍 Raw Response: \(rawResponse)")
+            }
+            
+            // Check HTTP response for authentication errors
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔍 HTTP Status Code: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 401 {
+                    print("🚨 Authentication Failed")
+                    completion(.failure(AIServiceError.authenticationError))
+                    return
+                }
+            }
+            
             do {
-                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                // Parse JSON response
+                let jsonResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any]
                 
-                // Check for API errors first
-                if let errorObject = json?["error"] as? [String: Any],
-                   let errorMessage = errorObject["message"] as? String {
-                    completion(.failure(NSError(domain: "AnthropicAPI", code: 0, userInfo: [NSLocalizedDescriptionKey: errorMessage])))
+                // Check for error in JSON response
+                if let error = jsonResponse?["error"] as? [String: Any],
+                   let errorMessage = error["message"] as? String {
+                    print("🚨 API Error: \(errorMessage)")
+                    completion(.failure(NSError(domain: "AIService", code: 0, userInfo: [NSLocalizedDescriptionKey: errorMessage])))
                     return
                 }
                 
-                // Try different response formats based on Anthropic's API structure
-                if let content = json?["content"] as? [[String: Any]],
-                   let firstContent = content.first,
-                   let text = firstContent["text"] as? String {
-                    // Standard format for messages API
-                    completion(.success(text))
+                // Extract AI-generated content
+                guard let content = jsonResponse?["content"] as? [[String: Any]],
+                      let textContent = content.first?["text"] as? String else {
+                    print("🚨 Failed to extract content from response")
+                    completion(.failure(AIServiceError.invalidResponse))
                     return
                 }
                 
-                if let completionText = json?["completion"] as? String {
-                    // Older format for completions API
-                    completion(.success(completionText))
+                // Extract JSON from the text response
+                guard let jsonStartIndex = textContent.range(of: "{")?.lowerBound,
+                      let jsonEndIndex = textContent.range(of: "}", range: jsonStartIndex..<textContent.endIndex)?.upperBound else {
+                    print("🚨 Failed to find JSON in response")
+                    completion(.failure(AIServiceError.invalidResponse))
                     return
                 }
                 
-                // If we get here, try to send raw response as fallback
-                if let rawResponse = String(data: data, encoding: .utf8) {
-                    completion(.success(rawResponse))
-                    return
-                }
+                let jsonString = textContent[jsonStartIndex..<jsonEndIndex]
                 
-                completion(.failure(AIServiceError.invalidResponse))
+                // Parse roadmap from content
+                let roadmap = try parseRoadmap(
+                    json: String(jsonString),
+                    name: name,
+                    description: description.isEmpty ? "AI-generated roadmap for \(name)" : description
+                )
+                
+                // Success callback
+                completion(.success(roadmap))
                 
             } catch {
-                completion(.failure(AIServiceError.jsonParsingFailed))
+                // Handle parsing errors
+                print("🚨 Parsing error: \(error)")
+                completion(.failure(AIServiceError.unknownError))
             }
         }
         
+        // Start network request
         task.resume()
     }
     
-    // MARK: - Prompt Creation
-    private static func createPrompt(name: String, description: String, userInput: String) -> String {
-        // Create the prompt that will guide the AI to generate a roadmap
+    // Create a detailed, structured prompt
+    private static func createDetailedPrompt(name: String, description: String, userInput: String) -> String {
         return """
-        You are an expert in learning path design and curriculum development.
+        You are an expert curriculum designer creating structured learning roadmaps.
+
+        Design a comprehensive, personalized learning roadmap for: "\(name)"
         
-        Please create a comprehensive learning roadmap for: "\(name)"
+        Context: "\(description)"
+        Learning Goal: "\(userInput)"
         
-        Additional description: "\(description)"
+        CREATE A STRUCTURED JSON ROADMAP WITH:
+        - 4-6 progressive learning phases
+        - 3-5 meaningful tasks per phase
+        - 2-4 specific, actionable subtasks per task
         
-        User's learning goals: "\(userInput)"
+        REQUIREMENTS:
+        1. Ensure logical skill progression
+        2. Include practical, hands-on learning steps
+        3. Cover fundamentals to advanced concepts
+        4. Provide clear, achievable milestones
         
-        Your task is to create a well-structured roadmap with the following components:
-        
-        1. 4-6 learning phases, each with a clear name and purpose
-        2. 3-5 tasks per phase that represent key skills or knowledge areas
-        3. 2-4 specific, actionable subtasks per task
-        
-        Please format your response as a JSON object that can be parsed into the following Swift structure:
-        
-        ```
-        struct Roadmap {
-            var phases: [Phase]
+        OUTPUT INSTRUCTIONS:
+        - Respond ONLY with a valid JSON object
+        - Do NOT include any additional text or explanation
+        - Follow this exact JSON structure:
+
+        {
+            "phases": [
+                {
+                    "name": "Phase Name",
+                    "tasks": [
+                        {
+                            "name": "Task Name",
+                            "subTasks": [
+                                {"name": "Specific Subtask"},
+                                {"name": "Another Specific Subtask"},
+                                ...
+                            ]
+                        },
+                        ...
+                    ]
+                },
+                ...
+            ]
         }
-        
-        struct Phase {
-            var name: String
-            var tasks: [Task]
-        }
-        
-        struct Task {
-            var name: String
-            var isCompleted: Bool  // Always false initially
-            var subTasks: [SubTask]
-        }
-        
-        struct SubTask {
-            var name: String
-            var isCompleted: Bool  // Always false initially
-        }
-        ```
-        
-        The response should be a valid JSON object containing only the roadmap data, with no additional explanation or commentary.
-        ONLY RETURN THE JSON OBJECT, nothing else. No markdown formatting, no explanations, just the raw JSON.
+
+        BEGIN RESPONSE IN PRECISE JSON FORMAT:
         """
     }
     
-    // MARK: - Response Parsing
+    // Parse JSON into Roadmap model
     private static func parseRoadmap(json: String, name: String, description: String) throws -> Roadmap {
-        // Extract the JSON part from the response, in case Claude includes text outside the JSON
-        let jsonString = extractJSONFromResponse(json)
-        
-        // Parse the JSON string into data
-        guard let jsonData = jsonString.data(using: .utf8) else {
-            throw AIServiceError.invalidData
+        guard let jsonData = json.data(using: .utf8) else {
+            throw AIServiceError.invalidResponse
         }
         
-        // Decode the data into a temporary structure
         let decoder = JSONDecoder()
         let tempRoadmap = try decoder.decode(AIRoadmapResponse.self, from: jsonData)
         
-        // Convert to your app's Roadmap model
         return Roadmap(
             id: UUID(),
             title: name,
             description: description,
-            imageName: "sparkles", // Default icon for AI-generated roadmaps
+            imageName: "sparkles",
             phases: tempRoadmap.phases.map { phase in
                 Phase(
                     id: UUID(),
@@ -346,77 +242,22 @@ class AIService {
         )
     }
     
-    // Helper method to extract JSON from the AI response
-    private static func extractJSONFromResponse(_ response: String) -> String {
-        // Try to find JSON between curly braces
-        do {
-            let jsonRegex = try NSRegularExpression(pattern: "\\{[^\\{\\}]*(?:\\{[^\\{\\}]*\\}[^\\{\\}]*)*\\}")
-            let nsString = response as NSString
-            let matches = jsonRegex.matches(in: response, range: NSRange(location: 0, length: nsString.length))
-            
-            if let match = matches.last {  // Take the last (usually largest) JSON object
-                let jsonString = nsString.substring(with: match.range)
-                return jsonString
-            }
-        } catch {
-            // Silently fail and try the next method
-        }
-        
-        // Fallback: simple curly brace matching
-        if let startIndex = response.firstIndex(of: "{"),
-           let endIndex = response.lastIndex(of: "}") {
-            let jsonSubstring = response[startIndex...endIndex]
-            return String(jsonSubstring)
-        }
-        
-        // If all else fails, try to add structure ourselves
-        return "{ \"phases\": [] }"
-    }
-    
-    // MARK: - Helper Structures
-    // Temporary structures for decoding the AI response
-    private struct AIRoadmapResponse: Decodable {
+    // Helper structures for JSON decoding
+    private struct AIRoadmapResponse: Codable {
         var phases: [AIPhase]
     }
     
-    private struct AIPhase: Decodable {
+    private struct AIPhase: Codable {
         var name: String
         var tasks: [AITask]
     }
     
-    private struct AITask: Decodable {
+    private struct AITask: Codable {
         var name: String
         var subTasks: [AISubTask]
     }
     
-    private struct AISubTask: Decodable {
+    private struct AISubTask: Codable {
         var name: String
-    }
-    
-    // MARK: - Error Types
-    enum AIServiceError: Error, LocalizedError {
-        case requestCreationFailed
-        case noData
-        case invalidResponse
-        case jsonParsingFailed
-        case invalidData
-        case parsingFailed(Error)
-        
-        var errorDescription: String? {
-            switch self {
-            case .requestCreationFailed:
-                return "Failed to create the API request"
-            case .noData:
-                return "No data received from the API"
-            case .invalidResponse:
-                return "Invalid response format from the API"
-            case .jsonParsingFailed:
-                return "Failed to parse JSON response"
-            case .invalidData:
-                return "Invalid data in the response"
-            case .parsingFailed(let error):
-                return "Failed to parse roadmap data: \(error.localizedDescription)"
-            }
-        }
     }
 }
